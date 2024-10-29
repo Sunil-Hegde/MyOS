@@ -8,6 +8,7 @@ typedef uint8_t bool;
 #define true 1
 #define false 0
 
+// Bootsector Structure
 typedef struct{
     uint8_t bootJumpInstruction[3];
     uint8_t oemIdentifier[8];
@@ -33,6 +34,7 @@ typedef struct{
     uint8_t systemID[8];
 } __attribute__((packed)) BootSector;
 
+// Director Entry Structure
 typedef struct{
     uint8_t Name[11];
     uint8_t attributes;
@@ -49,15 +51,18 @@ typedef struct{
 
 } __attribute__((packed)) DirectoryEntry;
 
-BootSector g_BootSector;
-uint8_t* g_Fat = NULL;
-DirectoryEntry* g_RootDirectory = NULL;
-uint32_t g_RootDirectoryEnd;
+// Global Variables
+BootSector g_BootSector; // Holds boot sector data
+uint8_t* g_Fat = NULL; // Stores the File Allocation Table
+DirectoryEntry* g_RootDirectory = NULL; // Points to the root directory contents
+uint32_t g_RootDirectoryEnd; // Marks the end of the root directory’s location on disk
 
+//Reads the boot sector from the disk image
 bool readBootSector(FILE* disk){
     return fread(&g_BootSector, sizeof(g_BootSector), 1, disk) > 0;
 }
-    
+
+//Reads count sectors starting from lba (logical block address) into bufferOut
 bool readSectors(FILE* disk, uint32_t lba, uint32_t count, void* bufferOut){
     bool ok = true;
     ok = ok && (fseek(disk, lba * g_BootSector.bytesPerSector, SEEK_SET) == 0);
@@ -65,11 +70,15 @@ bool readSectors(FILE* disk, uint32_t lba, uint32_t count, void* bufferOut){
     return ok;
 }
 
+// Allocates memory for g_Fat and loads the FAT table from the disk
 bool readFat(FILE* disk){
     g_Fat = (uint8_t*)malloc(g_BootSector.sectorsPerFat * g_BootSector.bytesPerSector);
     return readSectors(disk, g_BootSector.reservedSectors, g_BootSector.sectorsPerFat, g_Fat);
 }
 
+// Reads the root directory into g_RootDirectory. 
+// Calculates the root directory's starting sector and size, 
+// and stores the data into g_RootDirectory
 bool readRootDirectory(FILE* disk){
     uint32_t lba = g_BootSector.reservedSectors + g_BootSector.sectorsPerFat * g_BootSector.fatCount;
     uint32_t size = sizeof(DirectoryEntry) * g_BootSector.dirEntriesCount;
@@ -82,6 +91,7 @@ bool readRootDirectory(FILE* disk){
     return readSectors(disk, lba, sectors, g_RootDirectory);
 }
 
+// Searches for a file by name within the root directory
 DirectoryEntry* findFile(const char* name){
     for(uint32_t i = 0; i < g_BootSector.dirEntriesCount; i++){
         if (memcmp(name, g_RootDirectory[i].Name, 11) == 0){
@@ -91,6 +101,7 @@ DirectoryEntry* findFile(const char* name){
     return NULL; 
 }
 
+//Reads the file’s contents from disk based on the cluster chain found in the FAT
 bool readFile(DirectoryEntry* fileEntry, FILE* disk, uint8_t* outputBuffer){
     bool ok = true;
     uint16_t currentCluster = fileEntry->firstClusterLow;
@@ -114,7 +125,7 @@ int main(int argc, char **argv){
         printf("Syntax: %s <disk_image> <file_name>\n", argv[0]);
         return -1;
     }
-    FILE* disk = fopen(argv[1], "rb");
+    FILE* disk = fopen(argv[1], "rb"); // Initialise disk image, and read binary
     if(!disk){
         fprintf(stderr, "Cannot open disk image %s!\n", argv[1]);
         return -1;
@@ -138,7 +149,7 @@ int main(int argc, char **argv){
         return -4;
     }
 
-    DirectoryEntry* fileEntry = findFile(argv[2]);
+    DirectoryEntry* fileEntry = findFile(argv[2]); // Find required file
     if(!fileEntry){
         fprintf(stderr, "Could not find file %s!\n", argv[2]);
         free(g_Fat);
@@ -159,6 +170,7 @@ int main(int argc, char **argv){
         if(isprint(buffer[i])) fputc(buffer[i], stdout);
         else printf("<%02x>", buffer[i]);
     }
+    
     printf("\n");
     free(buffer);
     free(g_Fat);
