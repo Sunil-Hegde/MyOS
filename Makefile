@@ -1,9 +1,12 @@
 ASM = nasm
 CC = gcc
+CC16=/usr/bin/watcom/binl64/wcc
+LD16=/usr/bin/watcom/binl64/wlink
 
 SRC_DIR = src
 BUILD_DIR = build
 TOOLS_DIR = tools
+
 .PHONY: all floppy_image kernel bootloader clean always tools_fat
 
 all: floppy_image tools_fat

@@ -85,23 +85,23 @@ start:
     xor bx, bx
     mov di, buffer
 
-.search_kernel:
-    mov si, file_kernel_bin
+.search_stage2:
+    mov si, file_stage2_bin
     mov cx, 11
     push di
     repe cmpsb                ; Compare string for filename match
     pop di
-    je .found_kernel          ; Jump if kernel file found
+    je .found_stage2          ; Jump if kernel file found
     add di, 32                ; Move to next directory entry
     inc bx
     cmp bx, [bdb_dir_entries_count]
-    jl .search_kernel         ; Loop until all entries are checked
-    jmp kernel_not_found_error
+    jl .search_stage2         ; Loop until all entries are checked
+    jmp stage2_not_found_error
 
-.found_kernel:
+.found_stage2:
     ; Load starting cluster of kernel
     mov ax, [di + 26]
-    mov [kernel_cluster], ax
+    mov [stage2_cluster], ax
 
     ; Read FAT into buffer
     mov ax, [bdb_reserved_sectors]
@@ -111,13 +111,13 @@ start:
     call disk_read
 
     ; Set up kernel load address
-    mov bx, KERNEL_LOAD_SEGMENT
+    mov bx, STAGE2_LOAD_SEGMENT
     mov es, bx
-    mov bx, KERNEL_LOAD_OFFSET
+    mov bx, STAGE2_LOAD_OFFSET
 
-.load_kernel_loop:
+.load_stage2_loop:
     ; Read kernel sectors cluster by cluster
-    mov ax, [kernel_cluster]
+    mov ax, [stage2_cluster]
     add ax, 31
     mov cl, 1
     mov dl, [ebr_drive_number]
@@ -125,7 +125,7 @@ start:
     add bx, [bdb_bytes_per_sector]
 
     ; Read next cluster number
-    mov ax, [kernel_cluster]
+    mov ax, [stage2_cluster]
     mov cx, 3
     mul cx
     mov cx, 2
@@ -146,16 +146,16 @@ start:
 .next_cluster_after:
     cmp ax, 0x0ff8
     jae .read_finish
-    mov [kernel_cluster], ax
-    jmp .load_kernel_loop
+    mov [stage2_cluster], ax
+    jmp .load_stage2_loop
 
 .read_finish:
     ; Final jump to loaded kernel
     mov dl, [ebr_drive_number]
-    mov ax, KERNEL_LOAD_SEGMENT
+    mov ax, STAGE2_LOAD_SEGMENT
     mov ds, ax
     mov es, ax
-    jmp KERNEL_LOAD_SEGMENT:KERNEL_LOAD_OFFSET
+    jmp STAGE2_LOAD_SEGMENT:STAGE2_LOAD_OFFSET
     jmp wait_key_and_reboot  ; Reboot on error
 
 floppy_error:
@@ -163,8 +163,8 @@ floppy_error:
     call puts
     jmp wait_key_and_reboot
 
-kernel_not_found_error:
-    mov si, msg_kernel_not_found
+stage2_not_found_error:
+    mov si, msg_stage2_not_found
     call puts
     jmp wait_key_and_reboot
 
@@ -258,12 +258,12 @@ disk_reset:
 
 msg_read_failed:        db 'Read from disk failed!', ENDL, 0
 msg_loading:            db 'Loading...', ENDL, 0
-msg_kernel_not_found:   db 'STAGE2.BIN file not found!', ENDL, 0
-file_kernel_bin:        db 'STAGE2  BIN'
-kernel_cluster:         dw 0
+msg_stage2_not_found:   db 'STAGE2.BIN file not found!', ENDL, 0
+file_stage2_bin:        db 'STAGE2  BIN'
+stage2_cluster:         dw 0
 
-KERNEL_LOAD_SEGMENT     equ 0x2000
-KERNEL_LOAD_OFFSET      equ 0
+STAGE2_LOAD_SEGMENT     equ 0x2000
+STAGE2_LOAD_OFFSET      equ 0
 
 times 510-($-$$) db 0    ; Fill remaining bytes with 0s to make it 512 bytes
 dw 0xAA55                ; Boot sector signature
