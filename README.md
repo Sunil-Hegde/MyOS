@@ -28,9 +28,4 @@ These instructions will help you set up the build environment, compile the code,
 - **run.sh**: A script to launch MyOS in QEMU.
 - **test.img**: Floppy disk image used for testing.
 
-### Building MyOS
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/Sunil-Hegde/MyOS.git
-   cd MyOS
